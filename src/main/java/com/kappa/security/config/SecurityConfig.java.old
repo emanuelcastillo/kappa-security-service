@@ -1,0 +1,129 @@
+package com.kappa.security.config;
+
+import com.kappa.security.filter.ApiKeyFilter;
+import com.kappa.security.filter.CsrfCookieFilter;
+import com.kappa.security.filter.JwtFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.provisioning.JdbcUserDetailsManager;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import javax.sql.DataSource;
+import java.util.List;
+
+@Configuration
+@EnableMethodSecurity//para poder utilizarlo como anotacion en cualquier controlador o servicio
+public class SecurityConfig {
+
+    /* Bean que actua como el firewall de symfony o un middelware para todas las request */
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity /*,JwtFilter jwtFilter*/) throws Exception{
+
+        var csrfHandler = new CsrfTokenRequestAttributeHandler();
+        csrfHandler.setCsrfRequestAttributeName("_csrf");
+        httpSecurity.sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        //httpSecurity.addFilterBefore(new ApiKeyFilter(), BasicAuthenticationFilter.class);
+        httpSecurity.authorizeHttpRequests(
+                auth -> auth
+                        .requestMatchers("/api/v1/login", "/api/v1/signup").permitAll()
+                        //.requestMatchers("/api/v1/welcome").hasAuthority("ROLE_ADMIN")
+                        //.requestMatchers("/api/v1/welcome").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/**").authenticated()
+
+                        //.anyRequest().permitAll()
+                )
+                .formLogin(Customizer.withDefaults())
+                .httpBasic(Customizer.withDefaults());
+        //httpSecurity.addFilterAfter(jwtFilter, BasicAuthenticationFilter.class);
+        httpSecurity.cors(cors -> corsConfigurationSource());
+        httpSecurity.csrf(csfr -> csfr
+                .csrfTokenRequestHandler(csrfHandler)
+                .ignoringRequestMatchers("/api/v1/welcome", "/api/v1/login")
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()
+                )
+        );//.addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class);
+        //httpSecurity.cors(AbstractHttpConfigurer::disable);
+        //httpSecurity.csrf(AbstractHttpConfigurer::disable);
+
+        /* utiliza el patron build o construccion como las consultas en doctrine de symfony */
+        return httpSecurity.build();
+    }
+
+    /* Bean para darles sesion en memoria a los usuarios */
+
+    //@Bean
+    //InMemoryUserDetailsManager inMemoryUserDetailsManager(){
+
+        // utiliza el patron build o construccion como las consultas en doctrine de symfony */
+    // "var" un nuevo "tipo" de dato lanzado en java 17 para indicarle al compilador que decida el tipo de variable */
+    //var admin = User.withUsername("admin").password("secret").authorities("ADMIN").build();
+
+    // utiliza el patron build o construccion como las consultas en doctrine de symfony */
+    // "var" un nuevo "tipo" de dato lanzado en java 17 para indicarle al compilador que decida el tipo de variable */
+    //var user = User.withUsername("user").password("secret").authorities("USER").build();
+
+        //return new InMemoryUserDetailsManager(admin, user);
+        //}
+
+    /* a partir de spring boot 5 en algunos casos que yo sepa no es necesario la anotacion autowired para inyectar dependencias,
+    *   spring boot las inyecta solo.
+    *
+    *   Si tenemos una base de datos que no utiliza el init-spirng.sql que es lo que maneja spring boot por defecto entoces tenemos que crear nuestro propio JpaUserDetailsManager
+    * */
+    //@Bean
+    //UserDetailsService userDetailsService(DataSource dataSource){
+    //    return  new JdbcUserDetailsManager(dataSource);
+    //}
+
+    /* Bean para encriptar las contrasenas */
+    //@Bean
+    //PasswordEncoder passwordEncoder(){
+    //    /* cambiar por un algoritmo de encriptacion */
+    //    //retorna un objeto con patron singleton
+    //    return NoOpPasswordEncoder.getInstance();
+    //}
+
+    @Bean
+    PasswordEncoder passwordEncoder(){
+        return  NoOpPasswordEncoder.getInstance();//BCryptPasswordEncoder();
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(){
+        var cors = new CorsConfiguration();
+        cors.setAllowedOrigins(List.of("http://localhost"));
+        cors.setAllowedMethods(List.of("POST", "PUT", "PATCH", "GET", "DELETE"));
+        cors.setAllowedHeaders(List.of("*"));
+        var source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", cors);
+        return source;
+    }
+
+    @Bean
+    AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception{
+        return configuration.getAuthenticationManager();
+    }
+}

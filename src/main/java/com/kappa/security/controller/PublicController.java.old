@@ -1,0 +1,33 @@
+package com.kappa.security.controller;
+
+import com.kappa.security.entity.UserEntity;
+import com.kappa.security.repository.UserRepository;
+import lombok.AllArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@AllArgsConstructor
+@RequestMapping("/public")
+public class PublicController {
+
+    private final UserRepository userRepository;
+
+    @PostMapping("/signup")
+    public UserEntity register(@RequestBody UserEntity newUser){
+        this.userRepository.save(newUser);
+        return newUser;
+    }
+
+    @GetMapping("/about_us")
+    public Map<String, String> aboutUs(){
+        Map<String, String> map = new HashMap<>();
+        map.put("Organization", "Somos una organizacion que prioriza tu seguridad y privacidad");
+        map.put("About", "Dentro de neustros proveedores, partners y amigos se encuentran grandes empresas como");
+        map.put("Partners", "Google, Amazon Web Services etc..");
+
+        return map;
+    }
+}
