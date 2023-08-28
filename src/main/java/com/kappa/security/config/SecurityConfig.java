@@ -1,7 +1,6 @@
 package com.kappa.security.config;
 
 import com.kappa.security.service.OAuth2UserDetails;
-import com.nimbusds.jose.jwk.JWKSelector;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.JWKSource;
@@ -24,8 +23,9 @@ import org.springframework.security.oauth2.server.authorization.config.annotatio
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 
@@ -35,6 +35,8 @@ import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.LocalDateTime;
+
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -78,7 +80,10 @@ public class SecurityConfig {
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(httpSecurity);
 
         httpSecurity.getConfigurer(OAuth2AuthorizationServerConfigurer.class).oidc(Customizer.withDefaults());
+        //iyectamos los cors un una instruccion lamda, investigar como hacerlos en una version de spring anterior
+        httpSecurity.cors(cors -> corsConfigurationSource());
         httpSecurity.exceptionHandling(e->e.authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")));
+
         return httpSecurity.build();
     }
 
@@ -115,12 +120,25 @@ public class SecurityConfig {
     }
      */
 
+    // configuramos los cors de los dominios o puertos adminitos para este puerto o dominio
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(){
+        var cors = new CorsConfiguration();
+        cors.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:9000"));
+        cors.setAllowedMethods(List.of("POST", "PUT", "PATCH", "GET", "DELETE"));
+        cors.setAllowedHeaders(List.of("*"));
+        var source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", cors);
+        return source;
+    }
 
     @Bean
     SecurityFilterChain publicSecurityFilter(HttpSecurity httpSecurity) throws Exception{
         httpSecurity.formLogin(Customizer.withDefaults());
+        //auth.anyRequest().hasAuthority(ROLE_ADMIN)
         httpSecurity.authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
         httpSecurity.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+        httpSecurity.cors(cors -> corsConfigurationSource());
         httpSecurity.logout(Customizer.withDefaults());
         return httpSecurity.build();
     }
@@ -203,7 +221,9 @@ public class SecurityConfig {
     OAuth2TokenCustomizer<JwtEncodingContext> oAuth2TokenCustomizer(){
         return context -> {
             var authentication = context.getPrincipal();
+
             var authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
+
             if(context.getTokenType().equals(OAuth2TokenType.ACCESS_TOKEN)){
                 context.getClaims().claims(claim -> {
                     claim.putAll(
